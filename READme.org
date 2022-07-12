@@ -26,10 +26,7 @@ Description
 
 1. Introd
 
-2. Methode 
-2.a model EC3 beschrijving
-2.b fig 1 + ensemble set-up: voorwaarden (10 jaar voor multi-yr analyses, maar minimale trend daarbinnen) 
-2.c perturbaties beschrij: inital conditions en micro perturbaties
+2. Methode: (a) model EC3 beschrijving (b) fig 1 + ensemble set-up: voorwaarden (10 jaar voor multi-yr analyses, maar minimale trend daarbinnen) (c) perturbaties beschrij: inital conditions en micro perturbaties
 
 3. LENTIS overzicht (fig 3 and 4)
 
