@@ -6,7 +6,7 @@
 
 ** location LENTIS data
 
-/usr/people/muntjewe/nobackup/nobackup_1/LENTIS/
+'/net/pc200021/nobackup_1/users/muntjewe/LENTIS'
 
 
 ** TODOs - figuren
