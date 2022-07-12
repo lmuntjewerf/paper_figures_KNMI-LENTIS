@@ -4,6 +4,11 @@
 ** Status
 	in prep
 
+** location LENTIS data
+
+/usr/people/muntjewe/nobackup/nobackup_1/LENTIS/
+
+
 ** TODOs - figuren
 
 Description figures
@@ -15,9 +20,9 @@ Description figures
 
 Demo figures
 
-5. Wheat loss France. Scatter zoals suppl fig 5. Op y-as spring (Apr-Jul) daily avg precip (mm/day), op x-as number of okt-dec days TASMAX between 0-10 degC (#)
+5. pre-conditioned compound event -  Wheat loss France. Scatter zoals suppl fig 5. Op y-as spring (Apr-Jul) daily avg precip (mm/day), op x-as number of okt-dec days TASMAX between 0-10 degC (#)
 6. Nog een voorbeeld, bijv heavy rainfall on already saturated soils - Norway 
-7. Nog iets anders?
+7. Impact model - zonne-energie
 
 
 ** TODOs - text 
