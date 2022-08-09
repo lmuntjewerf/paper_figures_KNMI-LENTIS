@@ -92,6 +92,9 @@ for EXP in ['PD','2K']:
     # Compute linear trend (tas grid level, all ensemble members against time)
     da_tas_y_slope,_ = ensemble_linear_regression(da_tas_y)
     print('da_tas_y_slope =', da_tas_y_slope.shape)
+    # Compute int.ann. standard deviation (tas grid level, all ensemble members)
+    da_tas_y_stdev = da_tas_y.std(dim={'ens','year'})
+    print('da_tas_y_stdev =', da_tas_y_stdev.shape)
     
     # Save to file
     da_gmst_y.name = 'gmst'
@@ -99,6 +102,7 @@ for EXP in ['PD','2K']:
     ds_gmst['gmst_slope'] = da_gmst_y_slope
     ds_gmst['gmst_ens_slope'] = da_gmst_y_slope_ens
     ds_gmst['tas_ens_slope'] = da_tas_y_slope
+    ds_gmst['tas_ens_stdev'] = da_tas_y_stdev
     ds_gmst.to_netcdf(f"{output_directory}/gmst_ann_trends_{EXP}.nc")
     
     # Empty memory
