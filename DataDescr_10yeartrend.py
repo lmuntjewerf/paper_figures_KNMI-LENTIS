@@ -3,7 +3,7 @@ import xarray as xr
 import numpy as np
 
 ## data locations
-data_directory='/net/pc200272/nobackup/users/wiel/LENTIS/'
+data_directory='/net/pc200272/nobackup_1/users/wiel/LENTIS/'
 output_directory='/nobackup/users/wiel/LENTIS/datapaper/'
 
 ## define functions
@@ -66,7 +66,7 @@ def ensemble_linear_regression(da):
     return slope, intercept
 
 ## GOGOGOGO do computation
-for EXP in ['PD','2K']:
+for EXP in ['2K']:
     print('>> EXP =',EXP)
 
     # Open LENTIS data
