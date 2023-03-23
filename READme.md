@@ -40,3 +40,14 @@ Demonstratie
 
 5.  concl/disc.
 
+
+
+
+
+
+## How to organise this reop?
+- folders text section
+	- per figure and 
+	- per table
+	- other calculations?
+	
