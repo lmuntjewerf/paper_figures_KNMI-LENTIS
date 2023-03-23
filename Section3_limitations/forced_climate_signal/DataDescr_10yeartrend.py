@@ -1,10 +1,11 @@
 ## import packages
 import xarray as xr
 import numpy as np
+import netCDF4
 
 ## data locations
-data_directory='/net/pc200272/nobackup_1/users/wiel/LENTIS/'
-output_directory='/nobackup/users/wiel/LENTIS/datapaper/'
+data_directory='/net/pc200021/nobackup_1/users/muntjewe/LENTIS/'
+output_directory='/nobackup/users/muntjewe/LENTIS/datapaper/'
 
 ## define functions
 def open_data_LENTIS(var,time,ensemble,preproc):
@@ -14,38 +15,15 @@ def open_data_LENTIS(var,time,ensemble,preproc):
     files = f"{data_directory}{ensemble}/{time}/{var}/{var}_{letter}*.nc"
     ds = xr.open_mfdataset(files,preprocess=preproc,combine='nested',concat_dim='ens',chunks=-1,parallel=True)
     return ds
-def month_to_season(da,season):
-    """Compute timeseries of seasonal means, note DJF is still JF...D"""
-    if season == 'ann':
-        # temporal weights
-        month_length = da.time.dt.days_in_month
-        weights_mon = month_length
-        weights_season = weights_mon.groupby(weights_mon.time.dt.year).sum(dim='time')
-        # mean (weighted by days in month)
-        da_season = (da*weights_mon).groupby(da.time.dt.year).sum(dim='time') / weights_season
-    elif season in ['DJF','JJA','MAM','SON']:
-        # temporal weights
-        month_length = da.time.dt.days_in_month
-        weights_mon = month_length.sel(time=da.time.dt.season==season)
-        weights_season = weights_mon.groupby(weights_mon.time.dt.year).sum(dim='time')
-        # mean (weighted by days in month)
-        da_sel = da.sel(time=da.time.dt.season==season)
-        da_season = (da_sel*weights_mon).groupby(da_sel.time.dt.year).sum(dim='time') / weights_season
-    # done
-    return da_season
-def area_mean(da):
-    """Compute mean over lat/lon box"""
-    # create weights
-    weights_lat = np.cos(da.lat/180*np.pi).values
-    weights_latlon = np.reshape(np.repeat(weights_lat,len(da.lon)),(len(da.lat),len(da.lon)))
-    da_weights = xr.DataArray(weights_latlon,dims=['lat','lon'],coords=({'lat':da.lat,'lon':da.lon}),name='weights')
-    # compute mean
-    if da.notnull().any(): # remove NaN-gridcells
-        total_weights = da_weights.where(da.notnull()).sum(dim={'lat','lon'})
-    else:
-        total_weights = da_weights.sum({'lat','lon'})
-    area_mean = (da * da_weights).sum({'lat','lon'}) / total_weights
-    return area_mean
+
+def open_one_LENTIS(var,time,ensemble,i,j):
+    """Open one LENTIS data file from the ensemle"""
+    if ensemble == 'PD': letter = 'h'
+    elif ensemble == '2K': letter = 's'
+    file=f"{data_directory}/{ensemble}/{time}/{var}/{var}_{letter}{str(i).zfill(2)}{str(j)}.nc"
+    ds=xr.open_dataset(file)
+    return ds
+
 def linear_regression(da):
     """Simple linear regression"""
     # anomalies: data(y) & time(x)
@@ -55,6 +33,7 @@ def linear_regression(da):
     slope = (da_anom*time_anom).sum(dim={'year'}) / (time_anom*time_anom).sum(dim={'year'})
     intercept = da.mean(dim={'year'}) - slope * da.year.mean()
     return slope, intercept
+
 def ensemble_linear_regression(da):
     """Simple linear regression, over all ensemble members"""
     # anomalies: data(y) & time(x)
@@ -65,46 +44,116 @@ def ensemble_linear_regression(da):
     intercept = da.mean(dim={'ens','year'}) - slope * da.year.mean()
     return slope, intercept
 
-## GOGOGOGO do computation
-for EXP in ['2K']:
-    print('>> EXP =',EXP)
-
-    # Open LENTIS data
-    da_tas_mon = open_data_LENTIS('tas','Amon',EXP,None)['tas'].drop('height')
-    da_tas_mon.load()
-    print('da_tas_mon =', da_tas_mon.shape)
+def boxmean(da): 
+    """
+    Compute spatial weighted mean
+    da      :  xarray DataArray
+    """ 
+    #weights = np.cos(np.deg2rad(da.lat)) 
+    #weights.name = 'weights' 
+    #boxmean = da.weighted(weights).mean(dim=('lat','lon')) 
     
-    # Monthly to annual data
-    da_tas_y = month_to_season(da_tas_mon,'ann')
-    print('da_tas_y =', da_tas_y.shape)
+    if hasattr(da, 'lat'):
+        weights = np.cos(da.lat * np.pi / 180)
+        boxmean = da.weighted(weights).mean(dim=('lat','lon')) 
+    elif hasattr(da, 'latitude'):
+        weights = np.cos(da.latitude * np.pi / 180)
+        boxmean = da.weighted(weights).mean(dim=('latitude','longitude')) 
+    return boxmean 
 
-    # Compute global mean (create time series)
-    da_gmst_y = area_mean(da_tas_y)
-    print('da_gmst_y =', da_gmst_y.shape)
+def ann_global_mean(ds_var):
+    annual_global_mean = boxmean(ds_var).groupby('time.year').mean('time')
+    return annual_global_mean
+  
+def ensemble_ann_avg_global_mean(var,time,ensemble):
+    """Compute the annual-averaged, global weighted mean 
+    for a given variable, for all ensemble members of a time slice"""
+    ANN_avg_Global_mean=[]
+    for i in np.arange(1,16+1):
+        for j in np.arange(0,9+1):
+            ds = open_one_LENTIS(var,time,ensemble,i,j)
+            annual_global_mean = ann_global_mean(ds[var])
+            ANN_avg_Global_mean.append(annual_global_mean)
+            del ds,annual_global_mean
+    return ANN_avg_Global_mean
 
-    # Compute linear trend (gmst time series, each ensemble member against time)
-    da_gmst_y_slope,_ = linear_regression(da_gmst_y)
-    print('da_gmst_y_slope =', da_gmst_y_slope.shape)
-    # Compute linear trend (gmst time series, all ensemble members against time)
-    da_gmst_y_slope_ens,_ = ensemble_linear_regression(da_gmst_y)
-    print('da_gmst_y_slope_ens =', da_gmst_y_slope_ens.shape)
+def ensemble_linear_regression(var,time,ensemble):
+    ENS_lin_reg_slope=[]
+    ENS_lin_reg_intercept=[]
+    for i in np.arange(1,16+1):
+        for j in np.arange(0,9+1):
+            ds = open_one_LENTIS(var,time,ensemble,i,j)
+            slope, intercept = linear_regression(ds)
+            ENS_lin_reg_slope.append(slope)
+            ENS_lin_reg_intercept.append(intercept)
+            del ds,slope,intercept
+    return ENS_lin_reg_slope, ENS_lin_reg_intercept
 
-    # Compute linear trend (tas grid level, all ensemble members against time)
-    da_tas_y_slope,_ = ensemble_linear_regression(da_tas_y)
-    print('da_tas_y_slope =', da_tas_y_slope.shape)
-    # Compute int.ann. standard deviation (tas grid level, all ensemble members)
-    da_tas_y_stdev = da_tas_y.std(dim={'ens','year'})
-    print('da_tas_y_stdev =', da_tas_y_stdev.shape)
+def create_netcdf(ds,output_directory,ensemble):
+    try: ncfile.close()  # just to be safe, make sure dataset is not already open.
+    except: pass
+    ncfile = netCDF4.Dataset(f"{output_directory}/gmst_ann_trends_{ensemble}_test.nc",mode='w',format='NETCDF4') 
+    print(ncfile)
+
+    year_dim = ncfile.createDimension('year', 10)     # year axis
+    ens_dim = ncfile.createDimension('ens', None) # unlimited axis (can be appended to).
+
+    year = ncfile.createVariable('year', np.float32, ('year',))
+    year.units = 'year'
+    year.long_name = 'year'
+    ens = ncfile.createVariable('ens', np.float64, ('ens',))
+    ens.units = 'member'
+    ens.long_name = 'ensemble member'
+
+    nyear = len(ds[0].coords['year'].values)
+    # Write latitudes, longitudes.
+    # # Note: the ":" is necessary in these "write" statements
+    year[:] = ds[0].coords['year'].values
+
+    # Define a 3D variable to hold the data
+    gmst = ncfile.createVariable('gmst',np.float64,('ens','year')) # note: unlimited dimension is leftmost
+    gmst.units = 'K' # degrees Kelvin
+    gmst.standard_name = 'Global Mean Surface Temperature' # this is a CF standard name
+
+    gmst[:,:] = ds_gmst_ens  # Appends data along unlimited dimension
+
+    print(ncfile)
+    ncfile.close()
+
+
+
+
+## GOGOGOGO do computation
+
+time='Amon'
+var='tas'
+for ensemble in 'PD','2K':
+    print('starting')
+    # Compute global mean (series)
+    ds_gmst_ens = ensemble_ann_avg_global_mean(var,time,ensemble)
+    print('ds_gmst_ens done')
     
     # Save to file
-    da_gmst_y.name = 'gmst'
-    ds_gmst = da_gmst_y.to_dataset()
-    ds_gmst['gmst_slope'] = da_gmst_y_slope
-    ds_gmst['gmst_ens_slope'] = da_gmst_y_slope_ens
-    ds_gmst['tas_ens_slope'] = da_tas_y_slope
-    ds_gmst['tas_ens_stdev'] = da_tas_y_stdev
-    ds_gmst.to_netcdf(f"{output_directory}/gmst_ann_trends_{EXP}.nc")
+    create_netcdf(ds_gmst_ens,output_directory,ensemble)
+    print('Done and saved to netcdf here: '+ output_directory)
     
     # Empty memory
-    del da_tas_mon, da_tas_y, da_gmst_y, da_tas_y_slope, ds_gmst
+    del ds_gmst_ens #, ds_gmst #da_gmst_slope, da_gmst_slope_ens, 
+
+
+    ## Compute linear trend (gmst time series, each ensemble member against time)
+    #da_gmst_slope,_ = linear_regression(ds_gmst_ens)
+    #print('da_gmst_y_slope done')
+    
+    # Compute linear trend (gmst time series, all ensemble members against time)
+    #da_gmst_slope_ens,_ = ensemble_linear_regression(var,time,ensemble)
+    #print('da_gmst_y_slope_ens =', da_gmst_slope_ens.shape)
+
+
+    #ds_gmst['gmst_slope'] = da_gmst_slope
+    #ds_gmst['gmst_ens_slope'] = da_gmst_slope_ens
+    #ds_gmst.to_netcdf(f"{output_directory}/gmst_ann_trends_{ensemble}.nc")
+
+
+
 
